@@ -1,0 +1,5 @@
+name: hive-chat
+version: '1.0.0'
+main: me.levitate.hiveChat.HiveChat
+api-version: '1.20'
+authors: [ Levitate ]
