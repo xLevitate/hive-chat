@@ -29,8 +29,8 @@ public class MessageParser {
     private final Cache<String, ParsedMessage> messageCache;
     private final Plugin plugin;
 
-    public MessageParser() {
-        this.plugin = HiveChat.getPlugin();
+    public MessageParser(Plugin plugin) {
+        this.plugin = plugin;
         this.messageCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(5, TimeUnit.MINUTES)
                 .build();

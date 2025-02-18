@@ -21,7 +21,7 @@ public final class HiveChat {
 
     private HiveChat(Plugin plugin) {
         this.plugin = plugin;
-        this.messageParser = new MessageParser();
+        this.messageParser = new MessageParser(plugin);
         this.playerCache = new PlayerCache(plugin);
     }
 
@@ -29,13 +29,13 @@ public final class HiveChat {
         if (instance == null) {
             instance = new HiveChat(plugin);
         }
+
+        enablePAPI();
     }
 
-    public static void enablePAPI() {
+    private static void enablePAPI() {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             instance.papiEnabled = true;
-        } else {
-            instance.plugin.getLogger().warning("Attempted to enable PlaceholderAPI support but PlaceholderAPI is not installed!");
         }
     }
 
