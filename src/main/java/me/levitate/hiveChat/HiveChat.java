@@ -7,6 +7,7 @@ import me.levitate.hiveChat.parser.MessageParser;
 import me.levitate.hiveChat.placeholder.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -53,6 +54,16 @@ public final class HiveChat {
                 Bukkit.getScheduler().runTask(instance.plugin, () ->
                         parsed.send(player, placeholders));
             }
+        });
+    }
+
+    public static void send(CommandSender sender, String message, Placeholder... placeholders) {
+        checkInitialized();
+        if (sender == null) return;
+
+        instance.messageParser.parseAsync(message).thenAccept(parsed -> {
+            Bukkit.getScheduler().runTask(instance.plugin, () ->
+                    parsed.send(sender, placeholders));
         });
     }
 
