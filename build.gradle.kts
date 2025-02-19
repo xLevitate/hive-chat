@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "me.levitate"
-version = "1.0.4"
+version = "1.0.5"
 
 repositories {
     mavenCentral()
@@ -17,38 +17,6 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.6")
-}
-
-tasks {
-    compileJava {
-        options.encoding = "UTF-8"
-        options.release.set(17)
-    }
-
-    javadoc {
-        options {
-            (this as StandardJavadocDocletOptions).apply {
-                addStringOption("Xdoclint:none", "-quiet")
-                addStringOption("encoding", "UTF-8")
-                addStringOption("charSet", "UTF-8")
-                addBooleanOption("html5", true)
-                links("https://docs.oracle.com/en/java/javase/17/docs/api/")
-                links("https://jd.papermc.io/paper/1.20/")
-            }
-        }
-    }
-
-    shadowJar {
-        minimize()
-    }
-
-    build {
-        dependsOn(shadowJar)
-    }
-
-    jar {
-        enabled = false
-    }
 }
 
 publishing {
