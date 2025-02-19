@@ -14,11 +14,6 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.6")
@@ -27,6 +22,7 @@ dependencies {
 tasks {
     compileJava {
         options.encoding = "UTF-8"
+        options.release.set(17)
     }
 
     javadoc {
@@ -36,7 +32,7 @@ tasks {
                 addStringOption("encoding", "UTF-8")
                 addStringOption("charSet", "UTF-8")
                 addBooleanOption("html5", true)
-                links("https://docs.oracle.com/javase/8/docs/api/")
+                links("https://docs.oracle.com/en/java/javase/17/docs/api/")
                 links("https://jd.papermc.io/paper/1.20/")
             }
         }
@@ -65,5 +61,11 @@ publishing {
                 description.set("A library for handling Minecraft messages in a more powerful and intuitive manner.")
             }
         }
+    }
+
+    repositories {
+        mavenCentral()
+        maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+        maven("https://repo.papermc.io/repository/maven-public/")
     }
 }
