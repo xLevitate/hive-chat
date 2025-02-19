@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "me.levitate"
-version = "1.0.2"
+version = "1.0.3"
 
 repositories {
     mavenCentral()
@@ -53,16 +53,19 @@ tasks {
 
 publishing {
     publications {
-        create<MavenPublication>("maven") {
-            groupId = project.group.toString()
-            artifactId = project.name
-            version = project.version.toString()
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
 
-            artifact(tasks["shadowJar"])
+            pom {
+                name.set("hive-chat")
+                description.set("A library for handling Minecraft messages in a more powerful and intuitive manner.")
+            }
         }
     }
 
     repositories {
-        mavenLocal()
+        mavenCentral()
+        maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+        maven("https://repo.papermc.io/repository/maven-public/")
     }
 }
