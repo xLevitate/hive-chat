@@ -45,7 +45,6 @@ public class MessageParser {
             return CompletableFuture.completedFuture(cached);
         }
 
-        // Parse asynchronously
         CompletableFuture<ParsedMessage> future = new CompletableFuture<>();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {

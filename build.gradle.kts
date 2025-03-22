@@ -1,12 +1,11 @@
 plugins {
     id("java")
-    id("java-library")
     id("maven-publish")
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "me.levitate"
-version = "1.0.5"
+version = "1.1.0"
 
 repositories {
     mavenCentral()

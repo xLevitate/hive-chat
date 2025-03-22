@@ -17,19 +17,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PlayerCache {
     private final Map<UUID, WeakReference<Player>> playerCache = new ConcurrentHashMap<>();
     private final Plugin plugin;
-    
+
     public PlayerCache(Plugin plugin) {
         this.plugin = plugin;
         registerListeners();
     }
-    
+
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new PlayerCacheListener(), plugin);
     }
-    
+
     public Player getPlayer(UUID playerId) {
         if (playerId == null) return null;
-        
+
         // First try to get from cache
         WeakReference<Player> ref = playerCache.get(playerId);
         if (ref != null) {
@@ -39,38 +39,38 @@ public class PlayerCache {
             }
             playerCache.remove(playerId); // Remove invalid reference
         }
-        
+
         // If not in cache or invalid, try to get from Bukkit
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && player.isOnline()) {
             playerCache.put(playerId, new WeakReference<>(player));
             return player;
         }
-        
+
         return null;
     }
-    
-    private class PlayerCacheListener implements Listener {
-        @EventHandler(priority = EventPriority.MONITOR)
-        public void onJoin(PlayerJoinEvent event) {
-            playerCache.put(event.getPlayer().getUniqueId(), 
-                new WeakReference<>(event.getPlayer()));
-        }
-        
-        @EventHandler(priority = EventPriority.MONITOR)
-        public void onQuit(PlayerQuitEvent event) {
-            playerCache.remove(event.getPlayer().getUniqueId());
-        }
-    }
-    
+
     // Cleanup method called periodically
     public void cleanup() {
         playerCache.entrySet().removeIf(entry -> {
             WeakReference<Player> ref = entry.getValue();
             if (ref == null) return true;
-            
+
             Player player = ref.get();
             return player == null || !player.isOnline();
         });
+    }
+
+    private class PlayerCacheListener implements Listener {
+        @EventHandler(priority = EventPriority.MONITOR)
+        public void onJoin(PlayerJoinEvent event) {
+            playerCache.put(event.getPlayer().getUniqueId(),
+                    new WeakReference<>(event.getPlayer()));
+        }
+
+        @EventHandler(priority = EventPriority.MONITOR)
+        public void onQuit(PlayerQuitEvent event) {
+            playerCache.remove(event.getPlayer().getUniqueId());
+        }
     }
 }

@@ -2,7 +2,6 @@ package me.levitate.hiveChat.message;
 
 import me.levitate.hiveChat.placeholder.Placeholder;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Collections;

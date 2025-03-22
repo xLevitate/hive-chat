@@ -12,18 +12,41 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.HashSet;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BossBarComponent {
+    private static final Map<UUID, BossBar> activeBars = new ConcurrentHashMap<>();
+    private static final Map<UUID, BukkitTask> activeTasks = new ConcurrentHashMap<>();
     private String content;
     private BarColor color = BarColor.WHITE;
     private BarStyle style = BarStyle.SOLID;
     private double progress = 1.0;
     private int duration = 600; // Default 30 seconds (600 ticks)
 
-    private final Map<Player, BossBar> activeBars = new WeakHashMap<>();
-    private final Map<Player, BukkitTask> activeTasks = new WeakHashMap<>();
+    /**
+     * Static method to clean all boss bars for players who are no longer online
+     * This should be called periodically to prevent memory leaks
+     */
+    public static void cleanupBars() {
+        // Create a copy of the keys to avoid concurrent modification
+        new HashSet<>(activeBars.keySet()).forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) {
+                BossBar bar = activeBars.remove(uuid);
+                if (bar != null) {
+                    bar.removeAll();
+                }
+
+                BukkitTask task = activeTasks.remove(uuid);
+                if (task != null) {
+                    task.cancel();
+                }
+            }
+        });
+    }
 
     public void show(Player player, Placeholder... placeholders) {
         if (player == null || !player.isOnline()) return;
@@ -31,21 +54,23 @@ public class BossBarComponent {
         // Remove existing boss bar if any
         removeBossBar(player);
 
-        // Process content
+        // Process content with placeholders
         String processed = HiveChat.getParser().applyPlaceholders(content, player, placeholders);
+
+        // Parse the colors and formats properly
         Component component = ColorUtil.parseMessageFormats(processed);
 
-        // Create new boss bar
-        BossBar bossBar = Bukkit.createBossBar(
-                LegacyComponentSerializer.legacyAmpersand().serialize(component),
-                color,
-                style
-        );
+        // Convert the component to a string suitable for Bukkit boss bar
+        // We need to use legacy serializer to preserve colors in Bukkit boss bar
+        String coloredTitle = LegacyComponentSerializer.legacySection().serialize(component);
 
+        // Create new boss bar
+        BossBar bossBar = Bukkit.createBossBar(coloredTitle, color, style);
         bossBar.setProgress(progress);
         bossBar.addPlayer(player);
 
-        activeBars.put(player, bossBar);
+        UUID playerUUID = player.getUniqueId();
+        activeBars.put(playerUUID, bossBar);
 
         // Schedule removal if duration > 0
         if (duration > 0) {
@@ -54,17 +79,20 @@ public class BossBarComponent {
                     () -> removeBossBar(player),
                     duration
             );
-            activeTasks.put(player, task);
+            activeTasks.put(playerUUID, task);
         }
     }
 
     private void removeBossBar(Player player) {
-        BossBar existing = activeBars.remove(player);
+        if (player == null) return;
+
+        UUID playerUUID = player.getUniqueId();
+        BossBar existing = activeBars.remove(playerUUID);
         if (existing != null) {
             existing.removeAll();
         }
 
-        BukkitTask existingTask = activeTasks.remove(player);
+        BukkitTask existingTask = activeTasks.remove(playerUUID);
         if (existingTask != null) {
             existingTask.cancel();
         }

@@ -70,38 +70,38 @@ public class MessageComponent {
 
         return processed;
     }
-    
+
     // Getters and setters with fluent interface
     public MessageComponent setContent(String content) {
         this.content = content;
         return this;
     }
-    
+
     public MessageComponent setSound(Sound sound) {
         this.sound = sound;
         return this;
     }
-    
+
     public MessageComponent setVolume(float volume) {
         this.volume = volume;
         return this;
     }
-    
+
     public MessageComponent setPitch(float pitch) {
         this.pitch = pitch;
         return this;
     }
-    
+
     public MessageComponent setActionBar(ActionBar actionBar) {
         this.actionBar = actionBar;
         return this;
     }
-    
+
     public MessageComponent setBossBar(BossBarComponent bossBar) {
         this.bossBar = bossBar;
         return this;
     }
-    
+
     public MessageComponent setTitle(TitleComponent title) {
         this.title = title;
         return this;
