@@ -48,7 +48,6 @@ public class ActionBar {
         }
     }
 
-    // Getters and setters with fluent interface
     public ActionBar setContent(String content) {
         this.content = content;
         return this;

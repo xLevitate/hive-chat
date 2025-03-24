@@ -36,7 +36,6 @@ public class TitleComponent {
         player.showTitle(Title.title(titleComponent, subtitleComponent, times));
     }
 
-    // Getters and setters with fluent interface
     public TitleComponent setTitle(String title) {
         this.title = title;
         return this;

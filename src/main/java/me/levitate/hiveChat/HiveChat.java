@@ -12,10 +12,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @SuppressWarnings("unused")
 public final class HiveChat {
@@ -25,6 +24,23 @@ public final class HiveChat {
     private final PlayerCache playerCache;
     private boolean papiEnabled = false;
 
+    // Message queues using LinkedList to maintain insertion order
+    private final Map<UUID, Queue<QueuedMessage>> playerMessageQueues = new ConcurrentHashMap<>();
+    private final Map<String, Queue<QueuedMessage>> senderMessageQueues = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> playerProcessingFlags = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> senderProcessingFlags = new ConcurrentHashMap<>();
+
+    // Class to hold a message future and its placeholders
+    private static class QueuedMessage {
+        final CompletableFuture<ParsedMessage> messageFuture;
+        final Placeholder[] placeholders;
+
+        QueuedMessage(CompletableFuture<ParsedMessage> messageFuture, Placeholder[] placeholders) {
+            this.messageFuture = messageFuture;
+            this.placeholders = placeholders;
+        }
+    }
+
     private HiveChat(Plugin plugin) {
         this.plugin = plugin;
         this.messageParser = new MessageParser(plugin);
@@ -32,6 +48,29 @@ public final class HiveChat {
 
         // Schedule periodic cleanup
         Bukkit.getScheduler().runTaskTimer(plugin, this::performCleanup, 1200L, 1200L); // Every minute
+    }
+
+    /**
+     * Perform periodic cleanup operations
+     */
+    private void performCleanup() {
+        BossBarComponent.cleanupBars();
+        playerCache.cleanup();
+
+        // Clean up message queues for offline players
+        Set<UUID> toRemove = new HashSet<>();
+        for (UUID playerId : playerMessageQueues.keySet()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) {
+                toRemove.add(playerId);
+            }
+        }
+
+        // Remove queues for offline players
+        for (UUID playerId : toRemove) {
+            playerMessageQueues.remove(playerId);
+            playerProcessingFlags.remove(playerId);
+        }
     }
 
     /**
@@ -62,6 +101,143 @@ public final class HiveChat {
     }
 
     /**
+     * Add a message to player's queue and process it
+     * @param player The player
+     * @param messageFuture Future containing the parsed message
+     * @param placeholders Placeholders to apply
+     */
+    private void queuePlayerMessage(Player player, CompletableFuture<ParsedMessage> messageFuture, Placeholder... placeholders) {
+        if (player == null || !player.isOnline()) return;
+
+        UUID playerId = player.getUniqueId();
+
+        // Create a queued message with the future and placeholders
+        QueuedMessage queuedMessage = new QueuedMessage(messageFuture, placeholders);
+
+        // Get or create the queue
+        Queue<QueuedMessage> queue = playerMessageQueues.computeIfAbsent(
+                playerId, k -> new LinkedList<>());
+
+        // Add the message to the queue
+        queue.add(queuedMessage);
+
+        // Start processing if not already processing
+        if (!playerProcessingFlags.getOrDefault(playerId, false)) {
+            playerProcessingFlags.put(playerId, true);
+            processNextPlayerMessage(playerId);
+        }
+    }
+
+    /**
+     * Process the next message in a player's queue
+     * @param playerId Player's UUID
+     */
+    private void processNextPlayerMessage(UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null || !player.isOnline()) {
+            // Player went offline, clean up
+            playerMessageQueues.remove(playerId);
+            playerProcessingFlags.remove(playerId);
+            return;
+        }
+
+        Queue<QueuedMessage> queue = playerMessageQueues.get(playerId);
+        if (queue == null || queue.isEmpty()) {
+            // Queue empty, stop processing
+            playerProcessingFlags.put(playerId, false);
+            return;
+        }
+
+        // Get the next queued message
+        QueuedMessage queuedMessage = queue.poll();
+
+        // When the message is parsed, send it and process the next one
+        queuedMessage.messageFuture.thenAccept(message -> {
+            if (player.isOnline()) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    message.send(player, queuedMessage.placeholders);
+                    processNextPlayerMessage(playerId);
+                });
+            } else {
+                // Player went offline while waiting for parse
+                playerMessageQueues.remove(playerId);
+                playerProcessingFlags.remove(playerId);
+            }
+        }).exceptionally(ex -> {
+            plugin.getLogger().warning("Error processing message: " + ex.getMessage());
+            // Continue with next message even on error
+            Bukkit.getScheduler().runTask(plugin, () ->
+                    processNextPlayerMessage(playerId));
+            return null;
+        });
+    }
+
+    /**
+     * Add a message to a command sender's queue and process it
+     * @param sender Command sender
+     * @param messageFuture Future containing the parsed message
+     * @param placeholders Placeholders to apply
+     */
+    private void queueSenderMessage(CommandSender sender, CompletableFuture<ParsedMessage> messageFuture, Placeholder... placeholders) {
+        if (sender == null) return;
+
+        // For players, use the player queue
+        if (sender instanceof Player player) {
+            queuePlayerMessage(player, messageFuture, placeholders);
+            return;
+        }
+
+        String senderId = sender.getName();
+
+        // Create a queued message with the future and placeholders
+        QueuedMessage queuedMessage = new QueuedMessage(messageFuture, placeholders);
+
+        // Get or create the queue
+        Queue<QueuedMessage> queue = senderMessageQueues.computeIfAbsent(
+                senderId, k -> new LinkedList<>());
+
+        // Add the message to the queue
+        queue.add(queuedMessage);
+
+        // Start processing if not already processing
+        if (!senderProcessingFlags.getOrDefault(senderId, false)) {
+            senderProcessingFlags.put(senderId, true);
+            processNextSenderMessage(senderId, sender);
+        }
+    }
+
+    /**
+     * Process the next message in a sender's queue
+     * @param senderId Sender's name
+     * @param sender Command sender
+     */
+    private void processNextSenderMessage(String senderId, CommandSender sender) {
+        Queue<QueuedMessage> queue = senderMessageQueues.get(senderId);
+        if (queue == null || queue.isEmpty()) {
+            // Queue empty, stop processing
+            senderProcessingFlags.put(senderId, false);
+            return;
+        }
+
+        // Get the next queued message
+        QueuedMessage queuedMessage = queue.poll();
+
+        // When the message is parsed, send it and process the next one
+        queuedMessage.messageFuture.thenAccept(message -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                message.send(sender, queuedMessage.placeholders);
+                processNextSenderMessage(senderId, sender);
+            });
+        }).exceptionally(ex -> {
+            plugin.getLogger().warning("Error processing message: " + ex.getMessage());
+            // Continue with next message even on error
+            Bukkit.getScheduler().runTask(plugin, () ->
+                    processNextSenderMessage(senderId, sender));
+            return null;
+        });
+    }
+
+    /**
      * Send a message to a player
      * @param player The player to send the message to
      * @param message The message content
@@ -71,14 +247,9 @@ public final class HiveChat {
         checkInitialized();
         if (player == null || !player.isOnline()) return;
 
-        // Parse message asynchronously
-        instance.messageParser.parseAsync(message).thenAccept(parsed -> {
-            if (player.isOnline()) {
-                // Send on the main thread
-                Bukkit.getScheduler().runTask(instance.plugin, () ->
-                        parsed.send(player, placeholders));
-            }
-        });
+        // Queue the message for ordered processing
+        CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+        instance.queuePlayerMessage(player, messageFuture, placeholders);
     }
 
     /**
@@ -91,10 +262,9 @@ public final class HiveChat {
         checkInitialized();
         if (sender == null) return;
 
-        instance.messageParser.parseAsync(message).thenAccept(parsed -> {
-            Bukkit.getScheduler().runTask(instance.plugin, () ->
-                    parsed.send(sender, placeholders));
-        });
+        // Queue the message for ordered processing
+        CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+        instance.queueSenderMessage(sender, messageFuture, placeholders);
     }
 
     /**
@@ -117,31 +287,15 @@ public final class HiveChat {
      * @param messages The list of messages
      * @param placeholders Optional placeholders
      */
-    public static void sendOrdered(Player player, List<String> messages, Placeholder... placeholders) {
+    public static void sendList(Player player, List<String> messages, Placeholder... placeholders) {
         checkInitialized();
         if (player == null || !player.isOnline() || messages == null || messages.isEmpty()) return;
 
-        // Create a future for each message to be parsed
-        List<CompletableFuture<ParsedMessage>> futures = messages.stream()
-                .map(msg -> instance.messageParser.parseAsync(msg))
-                .toList();
-
-        // Wait for all messages to be parsed then send them in order
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenAccept(v -> {
-                    if (player.isOnline()) {
-                        Bukkit.getScheduler().runTask(instance.plugin, () -> {
-                            for (CompletableFuture<ParsedMessage> future : futures) {
-                                try {
-                                    ParsedMessage parsed = future.get();
-                                    parsed.send(player, placeholders);
-                                } catch (Exception e) {
-                                    instance.plugin.getLogger().warning("Error sending message: " + e.getMessage());
-                                }
-                            }
-                        });
-                    }
-                });
+        // Parse and queue each message in order
+        for (String message : messages) {
+            CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+            instance.queuePlayerMessage(player, messageFuture, placeholders);
+        }
     }
 
     /**
@@ -150,42 +304,19 @@ public final class HiveChat {
      * @param messages The list of messages
      * @param placeholders Optional placeholders
      */
-    public static void sendOrdered(CommandSender sender, List<String> messages, Placeholder... placeholders) {
+    public static void sendList(CommandSender sender, List<String> messages, Placeholder... placeholders) {
         checkInitialized();
         if (sender == null || messages == null || messages.isEmpty()) return;
 
-        // Create a future for each message to be parsed
-        List<CompletableFuture<ParsedMessage>> futures = messages.stream()
-                .map(msg -> instance.messageParser.parseAsync(msg))
-                .toList();
+        if (sender instanceof Player player) {
+            sendList(player, messages, placeholders);
+            return;
+        }
 
-        // Wait for all messages to be parsed then send them in order
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenAccept(v -> {
-                    Bukkit.getScheduler().runTask(instance.plugin, () -> {
-                        for (CompletableFuture<ParsedMessage> future : futures) {
-                            try {
-                                ParsedMessage parsed = future.get();
-                                parsed.send(sender, placeholders);
-                            } catch (Exception e) {
-                                instance.plugin.getLogger().warning("Error sending message: " + e.getMessage());
-                            }
-                        }
-                    });
-                });
-    }
-
-    /**
-     * Send a list of messages to a player identified by UUID in the exact order they appear in the list
-     * @param playerId The player's UUID
-     * @param messages The list of messages
-     * @param placeholders Optional placeholders
-     */
-    public static void sendOrdered(UUID playerId, List<String> messages, Placeholder... placeholders) {
-        checkInitialized();
-        Player player = instance.playerCache.getPlayer(playerId);
-        if (player != null) {
-            sendOrdered(player, messages, placeholders);
+        // Parse and queue each message in order
+        for (String message : messages) {
+            CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+            instance.queueSenderMessage(sender, messageFuture, placeholders);
         }
     }
 
@@ -196,7 +327,9 @@ public final class HiveChat {
      */
     public static void broadcast(String message, Placeholder... placeholders) {
         checkInitialized();
-        instance.messageParser.parseAsync(message).thenAccept(parsed -> {
+        CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+
+        messageFuture.thenAccept(parsed -> {
             Bukkit.getScheduler().runTask(instance.plugin, () -> {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     parsed.send(player, placeholders);
@@ -216,7 +349,9 @@ public final class HiveChat {
         checkInitialized();
         if (center == null || center.getWorld() == null) return;
 
-        instance.messageParser.parseAsync(message).thenAccept(parsed -> {
+        CompletableFuture<ParsedMessage> messageFuture = instance.messageParser.parseAsync(message);
+
+        messageFuture.thenAccept(parsed -> {
             Bukkit.getScheduler().runTask(instance.plugin, () -> {
                 center.getWorld().getPlayers().stream()
                         .filter(p -> p.getLocation().distance(center) <= radius)
@@ -230,32 +365,17 @@ public final class HiveChat {
      * @param messages The list of messages
      * @param placeholders Optional placeholders
      */
-    public static void broadcastOrdered(List<String> messages, Placeholder... placeholders) {
+    public static void broadcastList(List<String> messages, Placeholder... placeholders) {
         checkInitialized();
         if (messages == null || messages.isEmpty()) return;
 
-        // Parse all messages asynchronously
-        List<CompletableFuture<ParsedMessage>> futures = messages.stream()
-                .map(msg -> instance.messageParser.parseAsync(msg))
-                .toList();
+        // Get all the players currently online
+        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
 
-        // Wait for all to complete then send in order
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenAccept(v -> {
-                    Bukkit.getScheduler().runTask(instance.plugin, () -> {
-                        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
-                        for (CompletableFuture<ParsedMessage> future : futures) {
-                            try {
-                                ParsedMessage parsed = future.get();
-                                for (Player player : players) {
-                                    parsed.send(player, placeholders);
-                                }
-                            } catch (Exception e) {
-                                instance.plugin.getLogger().warning("Error broadcasting message: " + e.getMessage());
-                            }
-                        }
-                    });
-                });
+        // Send the list to each player
+        for (Player player : players) {
+            sendList(player, messages, placeholders);
+        }
     }
 
     /**
@@ -301,13 +421,5 @@ public final class HiveChat {
 
     public static MessageParser getParser() {
         return instance.messageParser;
-    }
-
-    /**
-     * Perform periodic cleanup operations
-     */
-    private void performCleanup() {
-        BossBarComponent.cleanupBars();
-        playerCache.cleanup();
     }
 }

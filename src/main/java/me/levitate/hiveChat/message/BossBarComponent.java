@@ -18,35 +18,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BossBarComponent {
-    private static final Map<UUID, BossBar> activeBars = new ConcurrentHashMap<>();
-    private static final Map<UUID, BukkitTask> activeTasks = new ConcurrentHashMap<>();
     private String content;
     private BarColor color = BarColor.WHITE;
     private BarStyle style = BarStyle.SOLID;
     private double progress = 1.0;
     private int duration = 600; // Default 30 seconds (600 ticks)
 
-    /**
-     * Static method to clean all boss bars for players who are no longer online
-     * This should be called periodically to prevent memory leaks
-     */
-    public static void cleanupBars() {
-        // Create a copy of the keys to avoid concurrent modification
-        new HashSet<>(activeBars.keySet()).forEach(uuid -> {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null || !player.isOnline()) {
-                BossBar bar = activeBars.remove(uuid);
-                if (bar != null) {
-                    bar.removeAll();
-                }
-
-                BukkitTask task = activeTasks.remove(uuid);
-                if (task != null) {
-                    task.cancel();
-                }
-            }
-        });
-    }
+    private static final Map<UUID, BossBar> activeBars = new ConcurrentHashMap<>();
+    private static final Map<UUID, BukkitTask> activeTasks = new ConcurrentHashMap<>();
 
     public void show(Player player, Placeholder... placeholders) {
         if (player == null || !player.isOnline()) return;
@@ -61,7 +40,7 @@ public class BossBarComponent {
         Component component = ColorUtil.parseMessageFormats(processed);
 
         // Convert the component to a string suitable for Bukkit boss bar
-        // We need to use legacy serializer to preserve colors in Bukkit boss bar
+        // We use the legacy serializer to ensure compatibility with the Bukkit boss bar API
         String coloredTitle = LegacyComponentSerializer.legacySection().serialize(component);
 
         // Create new boss bar
@@ -98,7 +77,27 @@ public class BossBarComponent {
         }
     }
 
-    // Getters and setters with fluent interface
+    /**
+     * Static method to clean all boss bars for players who are no longer online
+     */
+    public static void cleanupBars() {
+        // Create a copy of the keys to avoid concurrent modification
+        new HashSet<>(activeBars.keySet()).forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) {
+                BossBar bar = activeBars.remove(uuid);
+                if (bar != null) {
+                    bar.removeAll();
+                }
+
+                BukkitTask task = activeTasks.remove(uuid);
+                if (task != null) {
+                    task.cancel();
+                }
+            }
+        });
+    }
+
     public BossBarComponent setContent(String content) {
         this.content = content;
         return this;

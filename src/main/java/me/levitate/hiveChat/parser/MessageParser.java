@@ -14,7 +14,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +36,11 @@ public class MessageParser {
                 .build();
     }
 
+    /**
+     * Parse a message asynchronously
+     * @param message The message to parse
+     * @return A CompletableFuture containing the parsed message
+     */
     public CompletableFuture<ParsedMessage> parseAsync(String message) {
         if (message == null || message.isEmpty()) {
             return CompletableFuture.completedFuture(new ParsedMessage());
@@ -42,9 +49,11 @@ public class MessageParser {
         // Check cache first
         ParsedMessage cached = messageCache.getIfPresent(message);
         if (cached != null) {
-            return CompletableFuture.completedFuture(cached);
+            // Create a copy to avoid modifying the cached version
+            return CompletableFuture.completedFuture(cached.copy());
         }
 
+        // Parse asynchronously
         CompletableFuture<ParsedMessage> future = new CompletableFuture<>();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -199,7 +208,7 @@ public class MessageParser {
             );
         }
 
-        if (HiveChat.isPapiEnabled() && PlaceholderAPI.containsPlaceholders(processed)) {
+        if (HiveChat.isPapiEnabled() && player != null && PlaceholderAPI.containsPlaceholders(processed)) {
             if (Bukkit.isPrimaryThread()) {
                 processed = PlaceholderAPI.setPlaceholders(player, processed);
             } else {
@@ -209,7 +218,7 @@ public class MessageParser {
                         future.complete(PlaceholderAPI.setPlaceholders(player, finalProcessed)));
                 try {
                     processed = future.get(100, TimeUnit.MILLISECONDS);
-                } catch (Exception e) {
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
                     plugin.getLogger().warning("Failed to process PlaceholderAPI placeholders: " + e.getMessage());
                 }
             }

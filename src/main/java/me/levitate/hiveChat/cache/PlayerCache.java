@@ -30,14 +30,14 @@ public class PlayerCache {
     public Player getPlayer(UUID playerId) {
         if (playerId == null) return null;
 
-        // First try to get from cache
         WeakReference<Player> ref = playerCache.get(playerId);
         if (ref != null) {
             Player player = ref.get();
             if (player != null && player.isOnline()) {
                 return player;
             }
-            playerCache.remove(playerId); // Remove invalid reference
+
+            playerCache.remove(playerId);
         }
 
         // If not in cache or invalid, try to get from Bukkit

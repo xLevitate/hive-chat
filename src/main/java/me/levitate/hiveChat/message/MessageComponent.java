@@ -71,10 +71,13 @@ public class MessageComponent {
         return processed;
     }
 
-    // Getters and setters with fluent interface
     public MessageComponent setContent(String content) {
         this.content = content;
         return this;
+    }
+
+    public String getContent() {
+        return content;
     }
 
     public MessageComponent setSound(Sound sound) {
@@ -82,9 +85,17 @@ public class MessageComponent {
         return this;
     }
 
+    public Sound getSound() {
+        return sound;
+    }
+
     public MessageComponent setVolume(float volume) {
         this.volume = volume;
         return this;
+    }
+
+    public float getVolume() {
+        return volume;
     }
 
     public MessageComponent setPitch(float pitch) {
@@ -92,9 +103,17 @@ public class MessageComponent {
         return this;
     }
 
+    public float getPitch() {
+        return pitch;
+    }
+
     public MessageComponent setActionBar(ActionBar actionBar) {
         this.actionBar = actionBar;
         return this;
+    }
+
+    public ActionBar getActionBar() {
+        return actionBar;
     }
 
     public MessageComponent setBossBar(BossBarComponent bossBar) {
@@ -102,8 +121,16 @@ public class MessageComponent {
         return this;
     }
 
+    public BossBarComponent getBossBar() {
+        return bossBar;
+    }
+
     public MessageComponent setTitle(TitleComponent title) {
         this.title = title;
         return this;
+    }
+
+    public TitleComponent getTitle() {
+        return title;
     }
 }
