@@ -3,6 +3,7 @@ package me.levitate.hiveChat.message;
 import me.levitate.hiveChat.HiveChat;
 import me.levitate.hiveChat.placeholder.Placeholder;
 import me.levitate.hiveChat.util.ColorUtil;
+import me.levitate.hiveChat.util.ServerUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -10,7 +11,6 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -18,14 +18,30 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BossBarComponent {
+    private static final Map<UUID, BossBar> activeBars = new ConcurrentHashMap<>();
+    private static final Map<UUID, Object> activeTaskFlags = new ConcurrentHashMap<>();
     private String content;
     private BarColor color = BarColor.WHITE;
     private BarStyle style = BarStyle.SOLID;
     private double progress = 1.0;
     private int duration = 600; // Default 30 seconds (600 ticks)
 
-    private static final Map<UUID, BossBar> activeBars = new ConcurrentHashMap<>();
-    private static final Map<UUID, BukkitTask> activeTasks = new ConcurrentHashMap<>();
+    /**
+     * Static method to clean all boss bars for players who are no longer online
+     */
+    public static void cleanupBars() {
+        // Create a copy of the keys to avoid concurrent modification
+        new HashSet<>(activeBars.keySet()).forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) {
+                BossBar bar = activeBars.remove(uuid);
+                if (bar != null) {
+                    bar.removeAll();
+                }
+                activeTaskFlags.remove(uuid);
+            }
+        });
+    }
 
     public void show(Player player, Placeholder... placeholders) {
         if (player == null || !player.isOnline()) return;
@@ -53,12 +69,14 @@ public class BossBarComponent {
 
         // Schedule removal if duration > 0
         if (duration > 0) {
-            BukkitTask task = Bukkit.getScheduler().runTaskLater(
-                    HiveChat.getPlugin(),
-                    () -> removeBossBar(player),
-                    duration
-            );
-            activeTasks.put(playerUUID, task);
+            activeTaskFlags.put(playerUUID, Boolean.TRUE);
+            
+            // We're just tracking if there's a task scheduled, not the actual task reference
+            ServerUtil.runTaskLater(() -> {
+                if (activeTaskFlags.remove(playerUUID) != null) {
+                    removeBossBar(player);
+                }
+            }, duration);
         }
     }
 
@@ -70,32 +88,9 @@ public class BossBarComponent {
         if (existing != null) {
             existing.removeAll();
         }
-
-        BukkitTask existingTask = activeTasks.remove(playerUUID);
-        if (existingTask != null) {
-            existingTask.cancel();
-        }
-    }
-
-    /**
-     * Static method to clean all boss bars for players who are no longer online
-     */
-    public static void cleanupBars() {
-        // Create a copy of the keys to avoid concurrent modification
-        new HashSet<>(activeBars.keySet()).forEach(uuid -> {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null || !player.isOnline()) {
-                BossBar bar = activeBars.remove(uuid);
-                if (bar != null) {
-                    bar.removeAll();
-                }
-
-                BukkitTask task = activeTasks.remove(uuid);
-                if (task != null) {
-                    task.cancel();
-                }
-            }
-        });
+        
+        // No need to cancel tasks, just remove our tracking flag
+        activeTaskFlags.remove(playerUUID);
     }
 
     public BossBarComponent setContent(String content) {

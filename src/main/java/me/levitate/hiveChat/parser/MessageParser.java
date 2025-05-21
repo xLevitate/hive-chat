@@ -6,6 +6,8 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import me.levitate.hiveChat.HiveChat;
 import me.levitate.hiveChat.message.*;
 import me.levitate.hiveChat.placeholder.Placeholder;
+import me.levitate.hiveChat.placeholder.UniversalPlaceholderManager;
+import me.levitate.hiveChat.util.ServerUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.boss.BarColor;
@@ -13,6 +15,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -36,11 +39,6 @@ public class MessageParser {
                 .build();
     }
 
-    /**
-     * Parse a message asynchronously
-     * @param message The message to parse
-     * @return A CompletableFuture containing the parsed message
-     */
     public CompletableFuture<ParsedMessage> parseAsync(String message) {
         if (message == null || message.isEmpty()) {
             return CompletableFuture.completedFuture(new ParsedMessage());
@@ -56,7 +54,7 @@ public class MessageParser {
         // Parse asynchronously
         CompletableFuture<ParsedMessage> future = new CompletableFuture<>();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        ServerUtil.runTaskAsync(() -> {
             try {
                 ParsedMessage parsed = parseMessage(message);
                 messageCache.put(message, parsed);
@@ -200,22 +198,43 @@ public class MessageParser {
     public String applyPlaceholders(String text, Player player, Placeholder... placeholders) {
         if (text == null) return "";
 
+        // Apply universal placeholders first
+        UniversalPlaceholderManager universalManager = UniversalPlaceholderManager.getInstance();
+        
+        // Combine universal and specific placeholders
+        Placeholder[] combinedPlaceholders;
+        if (universalManager.hasPlaceholders()) {
+            Placeholder[] universalPlaceholders = player != null ?
+                    universalManager.getAllPlaceholders(player) : 
+                    universalManager.getStaticPlaceholders();
+            
+            // Merge the arrays, with specific placeholders taking precedence
+            combinedPlaceholders = mergePlaceholders(universalPlaceholders, placeholders);
+        } else {
+            combinedPlaceholders = placeholders;
+        }
+        
+        // Apply all placeholders
         String processed = text;
-        for (Placeholder placeholder : placeholders) {
+        for (Placeholder placeholder : combinedPlaceholders) {
             processed = processed.replace(
                     "{" + placeholder.getKey() + "}",
                     placeholder.getValue()
             );
         }
 
+        // Apply PlaceholderAPI if available
         if (HiveChat.isPapiEnabled() && player != null && PlaceholderAPI.containsPlaceholders(processed)) {
             if (Bukkit.isPrimaryThread()) {
                 processed = PlaceholderAPI.setPlaceholders(player, processed);
             } else {
                 CompletableFuture<String> future = new CompletableFuture<>();
                 String finalProcessed = processed;
-                Bukkit.getScheduler().runTask(plugin, () ->
-                        future.complete(PlaceholderAPI.setPlaceholders(player, finalProcessed)));
+                
+                ServerUtil.runTask(() ->
+                    future.complete(PlaceholderAPI.setPlaceholders(player, finalProcessed))
+                );
+                
                 try {
                     processed = future.get(100, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -225,6 +244,29 @@ public class MessageParser {
         }
 
         return processed;
+    }
+    
+    /**
+     * Merge placeholder arrays, with specific placeholders overriding universal ones
+     * @param universalPlaceholders Universal placeholders
+     * @param specificPlaceholders Specific placeholders
+     * @return Merged array with specific placeholders taking precedence
+     */
+    private Placeholder[] mergePlaceholders(Placeholder[] universalPlaceholders, Placeholder[] specificPlaceholders) {
+        if (universalPlaceholders == null || universalPlaceholders.length == 0) {
+            return specificPlaceholders;
+        }
+        if (specificPlaceholders == null || specificPlaceholders.length == 0) {
+            return universalPlaceholders;
+        }
+        
+        // Create a new array with enough space for all placeholders
+        Placeholder[] result = Arrays.copyOf(universalPlaceholders, universalPlaceholders.length + specificPlaceholders.length);
+        
+        // Copy specific placeholders, which will override universal ones
+        System.arraycopy(specificPlaceholders, 0, result, universalPlaceholders.length, specificPlaceholders.length);
+        
+        return result;
     }
 
     public void cacheMessage(String key, ParsedMessage message) {

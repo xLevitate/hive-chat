@@ -71,17 +71,12 @@ public class MessageComponent {
         return processed;
     }
 
-    public MessageComponent setContent(String content) {
-        this.content = content;
-        return this;
-    }
-
     public String getContent() {
         return content;
     }
 
-    public MessageComponent setSound(Sound sound) {
-        this.sound = sound;
+    public MessageComponent setContent(String content) {
+        this.content = content;
         return this;
     }
 
@@ -89,8 +84,8 @@ public class MessageComponent {
         return sound;
     }
 
-    public MessageComponent setVolume(float volume) {
-        this.volume = volume;
+    public MessageComponent setSound(Sound sound) {
+        this.sound = sound;
         return this;
     }
 
@@ -98,8 +93,8 @@ public class MessageComponent {
         return volume;
     }
 
-    public MessageComponent setPitch(float pitch) {
-        this.pitch = pitch;
+    public MessageComponent setVolume(float volume) {
+        this.volume = volume;
         return this;
     }
 
@@ -107,8 +102,8 @@ public class MessageComponent {
         return pitch;
     }
 
-    public MessageComponent setActionBar(ActionBar actionBar) {
-        this.actionBar = actionBar;
+    public MessageComponent setPitch(float pitch) {
+        this.pitch = pitch;
         return this;
     }
 
@@ -116,8 +111,8 @@ public class MessageComponent {
         return actionBar;
     }
 
-    public MessageComponent setBossBar(BossBarComponent bossBar) {
-        this.bossBar = bossBar;
+    public MessageComponent setActionBar(ActionBar actionBar) {
+        this.actionBar = actionBar;
         return this;
     }
 
@@ -125,12 +120,17 @@ public class MessageComponent {
         return bossBar;
     }
 
-    public MessageComponent setTitle(TitleComponent title) {
-        this.title = title;
+    public MessageComponent setBossBar(BossBarComponent bossBar) {
+        this.bossBar = bossBar;
         return this;
     }
 
     public TitleComponent getTitle() {
         return title;
+    }
+
+    public MessageComponent setTitle(TitleComponent title) {
+        this.title = title;
+        return this;
     }
 }
