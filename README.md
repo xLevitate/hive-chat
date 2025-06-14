@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.xLevitate:hive-chat:1.2.0")
+    implementation("com.github.xLevitate:hive-chat:1.3.1")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
     <dependency>
         <groupId>com.github.xLevitate</groupId>
         <artifactId>hive-chat</artifactId>
-        <version>1.2.0</version>
+        <version>1.3.1</version>
     </dependency>
 </dependencies>
 ```
