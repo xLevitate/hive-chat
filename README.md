@@ -1,4 +1,5 @@
 # HiveChat
+[![](https://jitpack.io/v/xLevitate/Hive-chat.svg)](https://jitpack.io/#xLevitate/Hive-chat)
 
 A powerful Minecraft message library for sending formatted messages with advanced features.
 
