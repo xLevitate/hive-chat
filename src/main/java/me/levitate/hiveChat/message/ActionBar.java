@@ -5,7 +5,6 @@ import me.levitate.hiveChat.placeholder.Placeholder;
 import me.levitate.hiveChat.util.ColorUtil;
 import me.levitate.hiveChat.util.ServerUtil;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.Map;

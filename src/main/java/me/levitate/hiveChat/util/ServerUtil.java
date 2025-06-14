@@ -1,14 +1,12 @@
 package me.levitate.hiveChat.util;
 
 import com.tcoded.folialib.FoliaLib;
-import com.tcoded.folialib.wrapper.task.WrappedTask;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -41,6 +39,7 @@ public class ServerUtil {
     /**
      * Runs a task synchronously on the main thread (Paper) or global region (Folia)
      */
+    @SuppressWarnings("deprecation")
     public static void runTask(Runnable task) {
         ensureInitialized();
         try {
@@ -53,6 +52,7 @@ public class ServerUtil {
     /**
      * Runs a task asynchronously
      */
+    @SuppressWarnings("deprecation")
     public static void runTaskAsync(Runnable task) {
         ensureInitialized();
         try {
@@ -65,6 +65,7 @@ public class ServerUtil {
     /**
      * Schedules a repeating task
      */
+    @SuppressWarnings("deprecation")
     public static void runTaskTimer(Runnable task, long delay, long period) {
         ensureInitialized();
         try {
@@ -77,6 +78,7 @@ public class ServerUtil {
     /**
      * Schedules a named repeating task that can be cancelled by name later
      */
+    @SuppressWarnings("deprecation")
     public static void runNamedTaskTimer(String taskName, Runnable task, long delay, long period) {
         ensureInitialized();
         cancelNamedTask(taskName); // Cancel if already exists
@@ -111,6 +113,7 @@ public class ServerUtil {
     /**
      * Schedules a delayed task
      */
+    @SuppressWarnings("deprecation")
     public static void runTaskLater(Runnable task, long delay) {
         ensureInitialized();
         try {
@@ -123,6 +126,7 @@ public class ServerUtil {
     /**
      * Executes a task at an entity's location (region-aware in Folia)
      */
+    @SuppressWarnings("deprecation")
     public static <T extends Entity> void runAtEntity(T entity, Consumer<T> task) {
         ensureInitialized();
         if (entity == null) return;
@@ -137,6 +141,7 @@ public class ServerUtil {
     /**
      * Executes a task at a specific location (region-aware in Folia)
      */
+    @SuppressWarnings("deprecation")
     public static void runAtLocation(Location location, Runnable task) {
         ensureInitialized();
         if (location == null || location.getWorld() == null) return;
@@ -176,6 +181,7 @@ public class ServerUtil {
     /**
      * Cancel all scheduled tasks
      */
+    @SuppressWarnings("deprecation")
     public static void cancelAllTasks() {
         if (foliaLib != null) {
             foliaLib.getScheduler().cancelAllTasks();

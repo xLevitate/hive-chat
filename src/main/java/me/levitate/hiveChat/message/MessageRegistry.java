@@ -4,8 +4,6 @@ import me.levitate.hiveChat.HiveChat;
 import me.levitate.hiveChat.placeholder.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;

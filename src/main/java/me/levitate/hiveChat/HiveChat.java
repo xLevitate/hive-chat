@@ -3,7 +3,6 @@ package me.levitate.hiveChat;
 import lombok.Getter;
 import me.levitate.hiveChat.cache.PlayerCache;
 import me.levitate.hiveChat.chain.MessageChain;
-import me.levitate.hiveChat.message.BossBarComponent;
 import me.levitate.hiveChat.message.MessageRegistry;
 import me.levitate.hiveChat.message.ParsedMessage;
 import me.levitate.hiveChat.parser.MessageParser;
@@ -376,13 +375,5 @@ public final class HiveChat {
         });
     }
 
-    private static class QueuedMessage {
-        final CompletableFuture<ParsedMessage> messageFuture;
-        final Placeholder[] placeholders;
-
-        QueuedMessage(CompletableFuture<ParsedMessage> messageFuture, Placeholder[] placeholders) {
-            this.messageFuture = messageFuture;
-            this.placeholders = placeholders;
-        }
-    }
+    private record QueuedMessage(CompletableFuture<ParsedMessage> messageFuture, Placeholder[] placeholders) { }
 }
