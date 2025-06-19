@@ -20,10 +20,7 @@ public class UniversalPlaceholderManager {
     // Dynamic placeholders that depend on a player
     private final Map<String, Function<Player, String>> dynamicPlaceholders = new ConcurrentHashMap<>();
     
-    // Private constructor for singleton pattern
-    private UniversalPlaceholderManager() {
-        // Private constructor prevents direct instantiation
-    }
+    private UniversalPlaceholderManager() {}
     
     /**
      * Get the singleton instance

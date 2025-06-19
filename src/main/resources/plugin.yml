@@ -5,7 +5,3 @@ api-version: '1.20'
 authors: [ Levitate ]
 description: A library for handling Minecraft messages in a more powerful and intuitive manner.
 folia-supported: true
-api: []
-
-# Note: This plugin depends on FoliaLib which is shaded into the jar
-# No need to install it separately

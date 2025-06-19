@@ -27,10 +27,7 @@ public final class ColorUtil {
     public static Component parseMessageFormats(String message) {
         if (message == null) return Component.empty();
 
-        // Convert hex colors first
         String processed = translateHexColors(message);
-
-        // Finally use MiniMessage for the rest
         return MiniMessage.miniMessage().deserialize(processed);
     }
 }

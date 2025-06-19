@@ -186,6 +186,7 @@ public class ServerUtil {
         if (foliaLib != null) {
             foliaLib.getScheduler().cancelAllTasks();
         }
+
         namedTasks.clear();
     }
     
@@ -197,9 +198,6 @@ public class ServerUtil {
         ensureInitialized();
         if (!isFolia() || entity == null) return true;
         
-        // In Paper, we're always on the main thread
-        // In Folia, we need to check the region - but this is handled by FoliaLib internally
-        // So we'll just return false for Folia, indicating it should use the proper scheduling method
         return !isFolia();
     }
     

@@ -50,7 +50,6 @@ public class PlayerCache {
         return null;
     }
 
-    // Cleanup method called periodically
     public void cleanup() {
         playerCache.entrySet().removeIf(entry -> {
             WeakReference<Player> ref = entry.getValue();

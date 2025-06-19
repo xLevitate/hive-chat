@@ -98,6 +98,7 @@ public class MessageParser {
                 int start = titleMatcher.start();
                 int end = titleMatcher.end();
                 remainingText.replace(start, end, "");
+
                 // Adjust matcher region after removal
                 titleMatcher.region(0, remainingText.length());
             } catch (Exception e) {
@@ -256,6 +257,7 @@ public class MessageParser {
         if (universalPlaceholders == null || universalPlaceholders.length == 0) {
             return specificPlaceholders;
         }
+        
         if (specificPlaceholders == null || specificPlaceholders.length == 0) {
             return universalPlaceholders;
         }

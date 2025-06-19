@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ActionBar {
     private static final Map<Player, Boolean> activeTasks = new ConcurrentHashMap<>();
     private String content;
-    private int duration = 60; // Default 3 seconds (60 ticks)
+    private int duration = 60; // 3 seconds
 
     public void show(Player player, Placeholder... placeholders) {
         if (player == null || !player.isOnline()) return;
