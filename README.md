@@ -187,4 +187,7 @@ HiveChat.broadcast("<red>Server restarting in 5 minutes!</red>");
 
 // Broadcast to players within a radius
 HiveChat.broadcast(50, centralLocation, "<yellow>Event starting nearby!</yellow>");
+
+// Broadcast registered messages
+HiveChat.broadcastRegistered("messages.broadcast");
 ```
