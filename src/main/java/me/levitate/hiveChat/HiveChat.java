@@ -13,6 +13,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
@@ -20,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-@SuppressWarnings("unused")
 public final class HiveChat {
     private static HiveChat instance;
     @Getter private final Plugin plugin;
@@ -46,9 +48,9 @@ public final class HiveChat {
         ServerUtil.runTaskTimer(this::performCleanup, 1200L, 1200L); // Every minute
         
         // Register shutdown hook to clean up resources
-        plugin.getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
-            @org.bukkit.event.EventHandler
-            public void onPluginDisable(org.bukkit.event.server.PluginDisableEvent event) {
+        plugin.getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void onPluginDisable(PluginDisableEvent event) {
                 if (event.getPlugin().equals(plugin)) {
                     ServerUtil.cancelAllTasks();
                 }
@@ -178,6 +180,17 @@ public final class HiveChat {
                 saved.send(p, placeholders));
         }
     }
+
+    public static void broadcastSaved(String key, Placeholder... placeholders) {
+        checkInitialized();
+        ParsedMessage saved = instance.messageParser.getCachedMessage(key);
+        if (saved != null) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                ServerUtil.runAtEntity(player, p ->
+                    saved.send(p, placeholders));
+            }
+        }
+    }
     
     public static UniversalPlaceholderManager addUniversalPlaceholder(String key, String value) {
         checkInitialized();
@@ -217,6 +230,11 @@ public final class HiveChat {
     public static void sendRegistered(String key, CommandSender sender, Placeholder... placeholders) {
         checkInitialized();
         instance.messageRegistry.send(key, sender, placeholders);
+    }
+    
+    public static void broadcastRegistered(String key, Placeholder... placeholders) {
+        checkInitialized();
+        instance.messageRegistry.broadcast(key, placeholders);
     }
     
     public static boolean isFolia() {

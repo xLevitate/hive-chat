@@ -103,6 +103,18 @@ public class MessageRegistry {
     }
     
     /**
+     * Broadcast a registered message to all players
+     * @param key The message key
+     * @param placeholders Optional placeholders
+     */
+    public void broadcast(String key, Placeholder... placeholders) {
+        String message = messages.get(key);
+        if (message != null) {
+            HiveChat.broadcastSaved(key, placeholders);
+        }
+    }
+    
+    /**
      * Import messages from a map
      * @param messagesMap Map of message keys to message content
      * @return This registry for chaining
