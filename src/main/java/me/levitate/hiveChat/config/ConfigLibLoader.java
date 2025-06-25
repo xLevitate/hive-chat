@@ -14,26 +14,26 @@ import java.util.logging.Logger;
  * Utility to load messages from ConfigLib configurations
  */
 public class ConfigLibLoader {
-    
+
     /**
      * Load messages from a ConfigLib configuration class
      * This supports String fields and Map<String, String> fields
      * 
      * @param configInstance Instance of the ConfigLib configuration
-     * @param registry MessageRegistry to load into
-     * @param baseKey Base key to prefix all message keys
-     * @param logger Logger for errors
+     * @param registry       MessageRegistry to load into
+     * @param baseKey        Base key to prefix all message keys
+     * @param logger         Logger for errors
      * @return Number of messages loaded
      */
     public static int loadFromConfig(Object configInstance, MessageRegistry registry, String baseKey, Logger logger) {
         if (configInstance == null || registry == null) {
             return 0;
         }
-        
+
         int count = 0;
         Class<?> configClass = configInstance.getClass();
         baseKey = baseKey == null ? "" : baseKey.endsWith(".") ? baseKey : baseKey + ".";
-        
+
         // Look for getters to handle both public fields and methods
         for (Method method : configClass.getMethods()) {
             String methodName = method.getName();
@@ -41,7 +41,7 @@ public class ConfigLibLoader {
                 try {
                     String fieldName = methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
                     Object value = method.invoke(configInstance);
-                    
+
                     count += processValue(fieldName, value, registry, baseKey, logger);
                 } catch (Exception e) {
                     if (logger != null) {
@@ -50,18 +50,18 @@ public class ConfigLibLoader {
                 }
             }
         }
-        
+
         // Also check direct field access for public fields
         for (Field field : configClass.getFields()) {
             try {
                 String fieldName = field.getName();
                 Object value = field.get(configInstance);
-                
+
                 // Skip fields we've already processed via getters
                 if (hasGetter(configClass, fieldName)) {
                     continue;
                 }
-                
+
                 count += processValue(fieldName, value, registry, baseKey, logger);
             } catch (Exception e) {
                 if (logger != null) {
@@ -69,13 +69,14 @@ public class ConfigLibLoader {
                 }
             }
         }
-        
+
         return count;
     }
-    
+
     /**
      * Check if a class has a getter for the given field name
-     * @param clazz Class to check
+     * 
+     * @param clazz     Class to check
      * @param fieldName Field name to check for
      * @return true if a getter exists, false otherwise
      */
@@ -88,24 +89,26 @@ public class ConfigLibLoader {
             return false;
         }
     }
-    
+
     /**
      * Process a value from a field or method
-     * @param name Field or method name
-     * @param value Value to process
+     * 
+     * @param name     Field or method name
+     * @param value    Value to process
      * @param registry MessageRegistry to load into
-     * @param baseKey Base key prefix
-     * @param logger Logger for errors
+     * @param baseKey  Base key prefix
+     * @param logger   Logger for errors
      * @return Number of messages added
      */
     @SuppressWarnings("unchecked")
-    private static int processValue(String name, Object value, MessageRegistry registry, String baseKey, Logger logger) {
+    private static int processValue(String name, Object value, MessageRegistry registry, String baseKey,
+            Logger logger) {
         if (value == null) {
             return 0;
         }
-        
+
         int count = 0;
-        
+
         // Handle different value types
         if (value instanceof String string) {
             registry.register(baseKey + name, string);
@@ -137,12 +140,13 @@ public class ConfigLibLoader {
             // Recursively process nested ConfigLib objects
             count += loadFromConfig(value, registry, baseKey + name, logger);
         }
-        
+
         return count;
     }
-    
+
     /**
      * Check if an object is a ConfigLib configuration object
+     * 
      * @param object Object to check
      * @return true if the object is a ConfigLib configuration
      */
@@ -150,32 +154,52 @@ public class ConfigLibLoader {
         if (object == null) {
             return false;
         }
-        
+
         Class<?> clazz = object.getClass();
-        
+
         // Check for common configuration object patterns
         String className = clazz.getName();
-        if (className.contains("Config") || className.contains("Configuration") || 
-            className.contains("Settings") || className.contains("Messages")) {
+        if (className.contains("Config") || className.contains("Configuration") ||
+                className.contains("Settings") || className.contains("Messages")) {
             return true;
         }
-        
+
         // Check for known annotations by name to avoid class loading issues
         for (Annotation annotation : clazz.getAnnotations()) {
             String annotationName = annotation.annotationType().getName();
-            if (annotationName.endsWith("Configuration") || 
-                annotationName.endsWith("ConfigurationElement") ||
-                annotationName.endsWith("ConfSerialization")) {
+            if (annotationName.endsWith("Configuration") ||
+                    annotationName.endsWith("ConfigurationElement") ||
+                    annotationName.endsWith("ConfSerialization") ||
+                    annotationName.endsWith("Data") || // Lombok @Data
+                    annotationName.contains("lombok")) { // Any Lombok annotation
                 return true;
             }
         }
-        
+
+        // Check if the object has String fields - likely a config object
+        boolean hasStringFields = false;
+        for (Field field : clazz.getFields()) {
+            if (field.getType() == String.class) {
+                hasStringFields = true;
+                break;
+            }
+        }
+
+        // If it has String fields and is in a package that suggests configuration,
+        // consider it a config object
+        if (hasStringFields && (clazz.getPackage() != null &&
+                (clazz.getPackage().getName().contains("config") ||
+                        clazz.getPackage().getName().contains("message")))) {
+            return true;
+        }
+
         return false;
     }
-    
+
     /**
      * Create a message map from fields in an object
-     * @param object The object containing message fields 
+     * 
+     * @param object The object containing message fields
      * @param prefix Prefix for the message keys
      * @return A map of message keys to message strings
      */
@@ -184,39 +208,85 @@ public class ConfigLibLoader {
         if (object == null) {
             return messages;
         }
-        
+
         prefix = prefix == null ? "" : prefix.endsWith(".") ? prefix : prefix + ".";
+
+        addMessagesFromObject(object, prefix, messages);
+
+        return messages;
+    }
+
+    /**
+     * Recursively add messages from an object to the messages map
+     * 
+     * @param object   The object to process
+     * @param prefix   Current prefix for message keys
+     * @param messages Map to add messages to
+     */
+    private static void addMessagesFromObject(Object object, String prefix, Map<String, String> messages) {
+        if (object == null) {
+            return;
+        }
+
         Class<?> clazz = object.getClass();
-        
+
         // Try public fields first
         for (Field field : clazz.getFields()) {
             try {
                 Object value = field.get(object);
-                if (value instanceof String) {
-                    messages.put(prefix + field.getName(), (String) value);
+                String fieldName = field.getName();
+
+                if (value instanceof String stringValue) {
+                    messages.put(prefix + fieldName, stringValue);
+                } else if (value != null && isConfigObject(value)) {
+                    // Recursively process nested configuration objects
+                    addMessagesFromObject(value, prefix + fieldName + ".", messages);
                 }
             } catch (Exception ignored) {
                 // Skip inaccessible fields
             }
         }
-        
+
         // Try getters next
         for (Method method : clazz.getMethods()) {
-            if (method.getName().startsWith("get") && !method.getName().equals("getClass") && 
-                    method.getParameterCount() == 0 && 
-                    method.getReturnType() == String.class) {
+            if (method.getName().startsWith("get") && !method.getName().equals("getClass") &&
+                    method.getParameterCount() == 0) {
                 try {
                     String fieldName = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4);
+
+                    // Skip if we already processed this field via direct field access
+                    if (hasPublicField(clazz, fieldName)) {
+                        continue;
+                    }
+
                     Object value = method.invoke(object);
-                    if (value instanceof String) {
-                        messages.put(prefix + fieldName, (String) value);
+
+                    if (value instanceof String stringValue) {
+                        messages.put(prefix + fieldName, stringValue);
+                    } else if (value != null && isConfigObject(value)) {
+                        // Recursively process nested configuration objects
+                        addMessagesFromObject(value, prefix + fieldName + ".", messages);
                     }
                 } catch (Exception ignored) {
                     // Skip methods that can't be called
                 }
             }
         }
-        
-        return messages;
     }
-} 
+
+    /**
+     * Check if a class has a public field with the given name
+     * 
+     * @param clazz     Class to check
+     * @param fieldName Field name to check for
+     * @return true if a public field exists, false otherwise
+     */
+    private static boolean hasPublicField(Class<?> clazz, String fieldName) {
+        try {
+            Field field = clazz.getField(fieldName);
+            return true;
+        } catch (NoSuchFieldException e) {
+            return false;
+        }
+    }
+}
