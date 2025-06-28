@@ -5,16 +5,12 @@ plugins {
 }
 
 group = "me.levitate"
-version = "1.4.2"
+version = "1.4.3"
 
 repositories {
     mavenCentral()
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
     maven("https://repo.papermc.io/repository/maven-public/")
-    maven {
-        name = "tcoded-releases"
-        url = uri("https://repo.tcoded.com/releases")
-    }
 }
 
 dependencies {
@@ -22,7 +18,6 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly("org.projectlombok:lombok:1.18.30")
     annotationProcessor("org.projectlombok:lombok:1.18.30")
-    implementation("com.tcoded:FoliaLib:0.5.1")
 }
 
 java {
@@ -33,15 +28,7 @@ tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
-tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
-    relocate("com.tcoded.folialib", "me.levitate.hiveChat.lib.folialib")
-    
-    // Ensure FoliaLib is not minimized
-    minimize {
-        exclude(dependency("com.tcoded:FoliaLib:.*"))
-    }
-    
-    // Archive name configuration
+tasks.shadowJar {
     archiveClassifier.set("")
 }
 
