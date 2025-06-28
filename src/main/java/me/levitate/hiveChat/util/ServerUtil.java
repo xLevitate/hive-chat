@@ -1,6 +1,7 @@
 package me.levitate.hiveChat.util;
 
 import me.levitate.hiveChat.scheduler.PlatformScheduler;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
@@ -238,5 +239,20 @@ public class ServerUtil {
 
     public static Plugin getPlugin() {
         return plugin;
+    }
+
+    /**
+     * Debug method to log platform information
+     */
+    public static void logPlatformInfo() {
+        ensureInitialized();
+        plugin.getLogger().info("=== Platform Detection Debug ===");
+        plugin.getLogger().info("Server Name: " + Bukkit.getName());
+        plugin.getLogger().info("Server Version: " + Bukkit.getVersion());
+        plugin.getLogger().info("Detected Platform: " + platformScheduler.getPlatformType());
+        plugin.getLogger().info("Is Folia: " + platformScheduler.isFolia());
+        plugin.getLogger().info("Is Paper: " + platformScheduler.isPaper());
+        plugin.getLogger().info("Is Spigot: " + platformScheduler.isSpigot());
+        plugin.getLogger().info("================================");
     }
 }

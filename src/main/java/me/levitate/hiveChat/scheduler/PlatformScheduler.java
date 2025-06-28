@@ -8,16 +8,12 @@ import org.bukkit.plugin.Plugin;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
-/**
- * A cross-platform scheduler that supports both Folia and Paper/Spigot
- */
 public class PlatformScheduler {
 
     private final Plugin plugin;
-    private final boolean isFolia;
-    private final PlatformType platformType;
+    private boolean isFolia;
+    private PlatformType platformType;
 
-    // Folia-specific objects (only available on Folia)
     private Object globalRegionScheduler;
     private Object asyncScheduler;
     private Method runTask;
@@ -39,37 +35,48 @@ public class PlatformScheduler {
         this.platformType = detectPlatform();
         this.isFolia = platformType == PlatformType.FOLIA;
 
+        plugin.getLogger().info("Detected server platform: " + platformType);
+
         if (isFolia) {
-            initializeFoliaSchedulers();
+            try {
+                initializeFoliaSchedulers();
+                plugin.getLogger().info("Successfully initialized Folia schedulers");
+            } catch (Exception e) {
+                plugin.getLogger().warning(
+                        "Failed to initialize Folia schedulers, falling back to Paper mode: " + e.getMessage());
+                this.platformType = PlatformType.PAPER;
+                this.isFolia = false;
+            }
         }
     }
 
     private PlatformType detectPlatform() {
         try {
-            // Check for Folia-specific classes
-            Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
             return PlatformType.FOLIA;
         } catch (ClassNotFoundException e) {
-            // Not Folia, check for Paper
             try {
                 Class.forName("com.destroystokyo.paper.PaperConfig");
                 return PlatformType.PAPER;
             } catch (ClassNotFoundException ex) {
-                return PlatformType.SPIGOT;
+                try {
+                    Class.forName("io.papermc.paper.configuration.Configuration");
+                    return PlatformType.PAPER;
+                } catch (ClassNotFoundException exc) {
+                    return PlatformType.SPIGOT;
+                }
             }
         }
     }
 
     private void initializeFoliaSchedulers() {
         try {
-            // Get Folia schedulers via reflection
             Method getGlobalRegionScheduler = Bukkit.class.getMethod("getGlobalRegionScheduler");
             Method getAsyncScheduler = Bukkit.class.getMethod("getAsyncScheduler");
 
             this.globalRegionScheduler = getGlobalRegionScheduler.invoke(null);
             this.asyncScheduler = getAsyncScheduler.invoke(null);
 
-            // Cache method references for performance
             Class<?> globalSchedulerClass = globalRegionScheduler.getClass();
             Class<?> asyncSchedulerClass = asyncScheduler.getClass();
 
@@ -80,7 +87,6 @@ public class PlatformScheduler {
             this.runTaskAsync = asyncSchedulerClass.getMethod("runNow", Plugin.class, Consumer.class);
             this.cancelAllTasks = globalSchedulerClass.getMethod("cancelTasks", Plugin.class);
 
-            // Location and entity schedulers
             Method getRegionScheduler = Bukkit.class.getMethod("getRegionScheduler");
             Object regionScheduler = getRegionScheduler.invoke(null);
             this.runAtLocation = regionScheduler.getClass().getMethod("run", Plugin.class, Location.class,
@@ -112,10 +118,6 @@ public class PlatformScheduler {
         return platformType;
     }
 
-    /**
-     * Runs a task on the next tick (main thread for Paper/Spigot, global region for
-     * Folia)
-     */
     public void runTask(Runnable task) {
         if (isFolia) {
             try {
@@ -128,9 +130,6 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Runs a task asynchronously
-     */
     public void runTaskAsync(Runnable task) {
         if (isFolia) {
             try {
@@ -143,9 +142,6 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Runs a task after a delay
-     */
     public void runTaskLater(Runnable task, long delay) {
         if (isFolia) {
             try {
@@ -158,9 +154,6 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Runs a repeating task
-     */
     public ScheduledTask runTaskTimer(Runnable task, long delay, long period) {
         if (isFolia) {
             try {
@@ -176,9 +169,6 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Runs a task at a specific location (region-aware for Folia)
-     */
     public void runAtLocation(Location location, Runnable task) {
         if (isFolia) {
             try {
@@ -189,21 +179,16 @@ public class PlatformScheduler {
                 throw new RuntimeException("Failed to run location task on Folia", e);
             }
         } else {
-            // On Paper/Spigot, just run on main thread
             runTask(task);
         }
     }
 
-    /**
-     * Runs a task at an entity's location (entity-aware for Folia)
-     */
     public <T extends Entity> void runAtEntity(T entity, Consumer<T> task) {
         if (isFolia) {
             try {
                 Method getEntityScheduler = Bukkit.class.getMethod("getEntityScheduler");
                 Object entityScheduler = getEntityScheduler.invoke(null);
                 Runnable entityRetiredCallback = () -> {
-                    // Entity removed fallback - do nothing
                 };
                 runAtEntity.invoke(entityScheduler, entity, plugin, (Consumer<Object>) t -> task.accept(entity),
                         entityRetiredCallback);
@@ -211,14 +196,10 @@ public class PlatformScheduler {
                 throw new RuntimeException("Failed to run entity task on Folia", e);
             }
         } else {
-            // On Paper/Spigot, just run on main thread
             runTask(() -> task.accept(entity));
         }
     }
 
-    /**
-     * Cancels all tasks scheduled by this plugin
-     */
     public void cancelAllTasks() {
         if (isFolia) {
             try {
@@ -231,18 +212,12 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Interface for scheduled tasks
-     */
     public interface ScheduledTask {
         void cancel();
 
         boolean isCancelled();
     }
 
-    /**
-     * Bukkit implementation of scheduled task
-     */
     private static class BukkitScheduledTask implements ScheduledTask {
         private final int taskId;
         private boolean cancelled = false;
@@ -265,9 +240,6 @@ public class PlatformScheduler {
         }
     }
 
-    /**
-     * Folia implementation of scheduled task
-     */
     private static class FoliaScheduledTask implements ScheduledTask {
         private final Object foliaTask;
         private boolean cancelled = false;
